@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>農藥知識互動練習題庫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        .option-btn { transition: all 0.2s ease-in-out; }
+        .option-btn.selected { background-color: #dcfce7; border-color: #22c55e; color: #166534; box-shadow: 0 0 0 2px #22c55e; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-xl max-w-3xl w-full overflow-hidden relative">
+        
+        <!-- 首頁 / Start Screen -->
+        <div id="start-screen" class="p-8 md:p-12 text-center">
+            <div class="mb-8">
+                <div class="bg-green-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <svg class="w-12 h-12 text-green-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">準備好開始挑戰了嗎？</h2>
+                <p class="text-gray-500 mt-3 text-base leading-relaxed">
+                    系統將從 <span class="text-green-600 font-bold">100 題</span> 精選題庫中，隨機抽選 <span class="text-green-600 font-bold">10 題</span> 進行互動測試。<br>每次練習「題目」與「選項順序」皆會重新打亂！
+                </p>
+            </div>
+            <button onclick="quizEngine.start()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-12 rounded-full shadow-lg transition-transform transform hover:-translate-y-1 text-lg">
+                開始練習
+            </button>
+        </div>
+
+        <!-- 作答區 / Quiz Screen -->
+        <div id="quiz-screen" class="hidden flex flex-col h-full">
+            <!-- Header & Progress -->
+            <div class="bg-gray-50 p-4 border-b">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-semibold text-gray-500" id="progress-text">第 1 / 10 題</span>
+                    <button onclick="quizEngine.confirmFinish()" class="text-sm text-red-500 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded-md transition-colors">結束作答</button>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-300" style="width: 10%"></div>
+                </div>
+            </div>
+
+            <!-- Question Area -->
+            <div class="p-6 md:p-8 flex-grow">
+                <h3 id="question-text" class="text-xl md:text-2xl font-bold text-gray-800 mb-6 leading-tight">題目載入中...</h3>
+                <div id="options-container" class="space-y-3">
+                    <!-- 動態產生選項 -->
+                </div>
+            </div>
+
+            <!-- Footer Navigation -->
+            <div class="p-4 bg-gray-50 border-t flex justify-between items-center">
+                <button id="btn-prev" onclick="quizEngine.prev()" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+                    上一題
+                </button>
+                <button id="btn-next" onclick="quizEngine.next()" class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm">
+                    下一題
+                </button>
+            </div>
+        </div>
+
+        <!-- 結果畫面 / Result Screen -->
+        <div id="result-screen" class="hidden p-8 md:p-12">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗完成！</h2>
+                <div class="inline-block relative w-32 h-32 mt-4 mb-2">
+                    <svg class="w-full h-full" viewBox="0 0 36 36">
+                        <path class="text-gray-200" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
+                        <path id="score-ring" class="text-green-500" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" />
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center flex-col">
+                        <span id="score-text" class="text-3xl font-bold text-gray-800">0</span>
+                        <span class="text-xs text-gray-500">分</span>
+                    </div>
+                </div>
+                <p id="feedback-text" class="text-lg font-medium mt-2"></p>
+            </div>
+
+            <div class="max-h-64 overflow-y-auto bg-gray-50 rounded-lg p-4 mb-6 border shadow-inner" id="review-container">
+                <!-- 錯題檢討動態載入 -->
+            </div>
+
+            <div class="text-center">
+                <button onclick="quizEngine.restart()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-full shadow-lg transition-transform transform hover:-translate-y-0.5 text-lg">
+                    重新練習
+                </button>
+            </div>
+        </div>
+
+        <!-- 自訂對話框 Custom Modal -->
+        <div id="custom-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 transform scale-100 transition-transform">
+                <h3 class="text-lg font-bold text-gray-900 mb-2">確定要結束作答嗎？</h3>
+                <p class="text-gray-600 mb-6 text-sm">尚未作答完畢的題目將以錯誤計算。您確定要直接交卷嗎？</p>
+                <div class="flex justify-end space-x-3">
+                    <button onclick="quizEngine.closeModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">繼續作答</button>
+                    <button onclick="quizEngine.finish()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm">確定交卷</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁腳 Footer -->
+    <div class="absolute bottom-4 text-center text-xs text-gray-400 w-full font-medium">
+        © 2026 童軍農藥專科章，學科題庫練習系統
+    </div>
+
+    <script>
+        // 嚴格格式化的 100 題題庫 (絕對單行，無換行干擾)
+        const database = [
+            { q: "下列選項何者屬於農藥範疇？", o: ["殺菌劑", "殺蟲劑", "除草劑", "以上皆是"], a: 3 },
+            { q: "除草劑可分為哪兩種主要作用方式？", o: ["選擇性與非選擇性", "內吸性與氣體性", "固態與液態", "天然與化學"], a: 0 },
+            { q: "下列何者主要用於防除真菌與細菌所引起的病害？", o: ["殺蟲劑", "殺鼠劑", "殺菌劑", "除草劑"], a: 2 },
+            { q: "植物生長調節劑在法規上是否屬於農藥？", o: ["是，屬於農藥列管", "否，屬於肥料", "否，屬於一般化學品", "視濃度而定"], a: 0 },
+            { q: "殺鼠劑主要用於防除何種動物？", o: ["農田野鼠等囓齒動物", "麻雀", "福壽螺", "蚜蟲"], a: 0 },
+            { q: "水懸劑是一種什麼狀態的農藥劑型？", o: ["固態", "氣態", "液態", "粉態"], a: 2 },
+            { q: "展著劑的主要作用是什麼？", o: ["提供植物營養", "直接殺死害蟲", "輔助農藥附著於植物表面", "促進植物開花"], a: 2 },
+            { q: "下列何者不算是農藥？", o: ["殺草劑", "植物營養劑", "殺蟲劑", "殺線蟲劑"], a: 1 },
+            { q: "粉劑、粒劑和片劑屬於何種物理狀態的農藥劑型？", o: ["液態", "固態", "氣態", "膠態"], a: 1 },
+            { q: "用於防除紅蜘蛛的藥劑主要屬於？", o: ["殺菌劑", "殺蟎劑", "除草劑", "殺鼠劑"], a: 1 },
+            { q: "化學合成殺蟲劑是否屬於法定農藥列管範圍？", o: ["是", "否", "僅列管特定成分", "只列管進口品"], a: 0 },
+            { q: "「性費洛蒙」在農業上的應用屬於？", o: ["廣效殺蟲劑", "生物基質農藥或誘引劑", "化學除草劑", "殺菌劑"], a: 1 },
+            { q: "農藥劑型代號「EC」通常代表？", o: ["可濕性粉劑", "水懸劑", "粒劑", "乳劑"], a: 3 },
+            { q: "農藥劑型代號「WP」通常代表？", o: ["乳劑", "水懸劑", "可濕性粉劑", "片劑"], a: 2 },
+            { q: "哪一種農藥施用時通常不需加水稀釋，直接撒施於土壤？", o: ["乳劑", "粒劑", "水懸劑", "微膠囊劑"], a: 1 },
+            { q: "蘇力菌屬於哪一類農藥？", o: ["化學除草劑", "植物生長調節劑", "微生物農藥", "殺鼠劑"], a: 2 },
+            { q: "具有「內吸性」的農藥代表什麼特性？", o: ["只能噴灑土壤", "只對室內有效", "藥劑可被植物吸收並傳導到其他部位", "需要害蟲吸入呼吸道才有效"], a: 2 },
+            { q: "「非選擇性除草劑」的特性為何？", o: ["只殺雙子葉雜草", "接觸到藥劑的綠色植物都會受害", "用來促進生長", "只對種子有效"], a: 1 },
+            { q: "農藥添加「增效劑」的目的為何？", o: ["降低毒性", "改變顏色", "本身無殺蟲活性但可提升農藥效果", "增加香味"], a: 2 },
+            { q: "甲基丁香油作為引誘劑，主要利用害蟲的何種特性？", o: ["趨光性", "聽覺", "趨濕性", "嗅覺或化學趨性"], a: 3 },
+            { q: "哪一種劑型在稱量時最容易因粉塵飛揚而遭吸入危害？", o: ["水劑", "粒劑", "微膠囊劑", "可濕性粉劑"], a: 3 },
+            { q: "評估農藥急性毒性的「LD50」是指什麼？", o: ["讓動物發病率50%的劑量", "農藥分解50%的時間", "讓50%試驗動物死亡的致死劑量", "安全採收期50天"], a: 2 },
+            { q: "LD50 的數值與毒性高低的關係為何？", o: ["數值愈大毒性愈強", "數值與毒性無關", "專指對植物的毒性", "數值愈小毒性愈強"], a: 3 },
+            { q: "我國農藥警告顏色標條，何者代表「劇毒」或「高毒」？", o: ["紅色", "藍色", "黃色", "綠色"], a: 0 },
+            { q: "農藥標籤標條為「藍色」，代表其毒性分級為？", o: ["劇毒", "輕毒", "微毒", "中毒(中度毒性)"], a: 3 },
+            { q: "農藥的「慢性毒性」不包含下列何者？", o: ["致癌性", "致畸胎性", "生殖毒性", "噴灑後10分鐘引起皮膚急性灼傷"], a: 3 },
+            { q: "「骷髏頭與交叉骨」標誌代表什麼含意？", o: ["對魚類有毒", "過期農藥", "屬於有機資材", "劇毒或高毒性，接觸極危險"], a: 3 },
+            { q: "「每日容許攝入量（ADI）」是指？", o: ["每日可噴灑最高總量", "作物容許殘留最高濃度", "動物24小時死亡一半的劑量", "人體一生中每日攝入不致危害的估計量"], a: 3 },
+            { q: "農藥透過皮膚接觸引起中毒的毒性稱為？", o: ["口服毒性", "吸入毒性", "慢性毒性", "經皮毒性"], a: 3 },
+            { q: "農藥註明「對蜜蜂高毒」，主要是為了？", o: ["保護作物不被蜜蜂咬", "保護蜜蜂免受毒害及生態評估考量", "因為蜜蜂會轉化毒性", "因為蜜蜂是害蟲"], a: 1 },
+
+            { q: "關於農藥毒性，下列敘述何者錯誤？", o: ["相同濃度對不同物種毒性可能不同", "毒性分級會區分不同攝入途徑", "低毒性農藥長期暴露仍可能有影響", "生物性農藥對人類絕對無毒，不需防護"], a: 3 },
+            { q: "購買農藥時的正確做法是？", o: ["聽信流動攤販", "購買無標籤秘方", "對症購買核准登記且在有效期的藥劑", "包裝破損沒關係"], a: 2 },
+            { q: "配製農藥稀釋液時，最不恰當的行為是？", o: ["戴橡膠手套", "在通風處配藥", "穿著長袖衣褲", "邊配藥邊抽菸"], a: 3 },
+            { q: "噴灑農藥時，施藥人員應如何操作？", o: ["逆風向前", "風大時噴灑", "站在下風處", "順風倒退噴灑"], a: 3 },
+            { q: "農藥空瓶（廢容器）的正確處理方式為？", o: ["隨手丟棄水溝", "就地焚燒", "帶回家裝水", "徹底沖洗三邊(三洗)後晾乾回收"], a: 3 },
+            { q: "夏季高溫施藥的正確觀念是？", o: ["穿短袖短褲較涼快", "塗防曬乳即可", "中暑與農藥中毒無關", "避免正午烈日下施藥防中暑與中毒"], a: 3 },
+            { q: "施藥完畢後，第一步處置應為何？", o: ["立刻進食", "穿施藥服躺下", "去市場買菜", "脫去防護衣並用肥皂徹底清洗身體暴露部位"], a: 3 },
+            { q: "農藥不慎濺入眼睛，第一時間應如何處理？", o: ["用手揉眼", "回家再洗", "塗眼藥膏", "用大量清水持續沖洗至少15分鐘並就醫"], a: 3 },
+            { q: "農藥儲存的錯誤觀念是？", o: ["放陰涼通風上鎖處", "不與食物混放", "放置孩童拿不到處", "倒入飲料瓶存放節省空間"], a: 3 },
+            { q: "「安全採收期（安全間隔期）」是指？", o: ["農藥最長存放年限", "不可進入田區的時間", "採收後可存放時間", "最後一次施藥至准予採收的最少間隔天數"], a: 3 },
+            { q: "未遵守安全採收期就採收上市，最可能導致？", o: ["作物更漂亮", "產量倍增", "盤商提高價格", "農藥殘留超標，危害健康且觸法"], a: 3 },
+            { q: "1 毫升農藥需稀釋 1000 倍，應加水多少？", o: ["10毫升", "100毫升", "10公升", "1000毫升(1公升)"], a: 3 },
+            { q: "施藥器具的維護何者錯誤？", o: ["用完立即清洗", "不以嘴吹通阻塞的噴頭", "加農藥前先用清水測漏水", "清洗廢水可隨意倒進魚塘"], a: 3 },
+            { q: "誤食農藥陷入昏迷時，急救何者錯誤？", o: ["保持呼吸道暢通", "撥打119", "攜帶標籤就醫", "強行灌鹽水催吐"], a: 3 },
+            { q: "農藥標籤的「有效成分」是指？", o: ["水分含量", "香精成分", "防結塊劑", "真正發揮防治效果的化學成分"], a: 3 },
+            { q: "農藥施用紀錄不需強制記載？", o: ["施藥日期與作物", "農藥名稱與倍數", "安全採收期", "買農藥的發票號碼"], a: 3 },
+            { q: "防止害蟲產生抗藥性的正確做法是？", o: ["持續加高濃度", "長期使用同一特效藥", "把五六種藥混在一起", "輪流使用不同作用機制的農藥"], a: 3 },
+            { q: "觸殺性殺蟲劑的施用重點是？", o: ["噴土壤即可", "等下大雨施用", "噴在葉面上沒用", "均勻噴灑直接接觸害蟲身體"], a: 3 },
+            { q: "防治真菌性病害最佳時機是？", o: ["果實全腐爛時", "收穫當天早上", "隨時都可", "發病初期或雨季前的預防性投藥"], a: 3 },
+            { q: "「萌前」與「萌後」除草劑施用差異？", o: ["萌前等草長到30公分用", "萌後用來抑制種子", "兩者混合隨時用", "萌前施於土表建藥層，萌後噴於已長出雜草"], a: 3 },
+            { q: "農藥混用的錯誤觀念？", o: ["應查閱相容性表", "可先小規模試驗", "混合液應儘速用完", "為了省工把所有剩餘農藥全倒在一起混噴"], a: 3 },
+            { q: "最不適合葉面噴灑的氣候是？", o: ["清晨微風", "傍晚氣流穩定", "陰天無雨", "預測一小時內即將下大暴雨時"], a: 3 },
+            { q: "農藥「藥害」是指？", o: ["害蟲被殺光", "人吸入中毒", "雜草長太高", "因農藥使用不當導致作物受損"], a: 3 },
+            { q: "防治刺吸式口器害蟲，何種藥劑較佳？", o: ["無內吸傳導的胃毒劑", "殺鼠劑", "殺菌劑", "具優良內吸(系統)傳導性的藥劑"], a: 3 },
+            { q: "安全資材（如波爾多液）施用原則何者正確？", o: ["濃度再高也不會藥害", "可取代所有化學農藥", "可噴到眼睛", "仍須依推薦濃度合理施用避免高溫藥害"], a: 3 },
+            { q: "註明「對十字花科敏感」代表？", o: ["是十字花科營養劑", "專殺十字花科雜草", "對十字花科害蟲無效", "用於十字花科極易產生藥害"], a: 3 },
+            { q: "農藥分為農藥原體和哪一種？", o: ["化學農藥", "混合農藥", "有機農藥", "成品農藥"], a: 3 },
+            { q: "我國主管農藥登記及管理的中央機關為？", o: ["衛生福利部", "環境部", "經濟部", "農業部"], a: 3 },
+            { q: "標籤上的「有效期限」通常自何時起算？", o: ["進口日期", "購買日期", "開瓶日期", "製造日期"], a: 3 },
+            { q: "農民自行調配的驅蟲皂水，在法規上屬於？", o: ["列管成品農藥", "農藥原體", "劇毒農藥", "免登記植物保護資材或一般資材"], a: 3 },
+
+            { q: "農藥殘留容許量(MRL)主要是為了保護誰？", o: ["農民", "植物", "土壤昆蟲", "一般消費者(國民健康)"], a: 3 },
+            { q: "有機農業是否允許使用合成化學農藥？", o: ["視情況允許", "僅能用於幼苗", "只要殘留不超標即可", "絕對不允許"], a: 3 },
+            { q: "噴霧器產生哪一種霧滴最容易隨風飄散造成鄰田污染？", o: ["粗霧滴", "大水滴", "水柱", "極細微霧滴"], a: 3 },
+            { q: "農藥中毒的急救專線，在台灣通常可撥打？", o: ["165", "113", "1999", "119 或 毒藥物防治諮詢中心"], a: 3 },
+            { q: "為何不可用裝過除草劑的噴霧器直接噴灑殺蟲劑於敏感作物上？", o: ["會爆炸", "會讓蟲變大", "會浪費水", "微量除草劑殘留即可能對作物造成嚴重藥害"], a: 3 },
+            { q: "保護性殺菌劑與治療性殺菌劑最大差異為何？", o: ["保護性毒性較強", "保護性只能殺死雜草", "治療性可殺蟲", "保護性於病原侵入前施用，治療性於發病後施用"], a: 3 },
+            { q: "購買農藥時，店家要求登記身分證字號，原因是？", o: ["為了抽獎", "為了查稅", "為了廣告推銷", "實名制政策，追溯流向並防範非農用及濫用"], a: 3 },
+            { q: "下列哪一種是施藥時必備的安全防護裝備？", o: ["太陽眼鏡", "藍白拖鞋", "短袖汗衫", "合格的防護口罩或防毒面具"], a: 3 },
+            { q: "農田邊的水溝若發現大量死魚，最可能與何者施用不當有關？", o: ["有機肥", "植物荷爾蒙", "除草劑", "對水生生物具高毒性的農藥"], a: 3 },
+            { q: "農藥經稀釋後，應放置多久內使用完畢最佳？", o: ["一週內", "一個月內", "放越久越有效", "當日配製當日儘速用完"], a: 3 },
+            { q: "過期或不再使用的農藥應如何處理？", o: ["倒進馬桶", "埋入土中", "直接丟垃圾車", "交由各地方農會或指定回收站處理"], a: 3 },
+            { q: "標示「水性」的農藥劑型通常代表？", o: ["只能用於水稻", "不用加水直接噴", "含有大量化學有機溶劑", "以水為溶劑或分散介質，較環保"], a: 3 },
+            { q: "何謂「安全間隔期」？", o: ["兩次施藥需間隔的天數", "人可以進去田裡的天數", "施藥後農藥分解的時間", "最後一次施藥至農作物採收的最短天數"], a: 3 },
+            { q: "下列哪種作法可有效減少蔬菜農藥殘留？", o: ["用鹽水泡一整天", "用洗碗精用力刷", "直接生吃", "流動清水浸泡清洗"], a: 3 },
+            { q: "長期接觸特定化學農藥可能誘發神經系統受損，這屬於何種毒性？", o: ["急性毒性", "環境毒性", "生態毒性", "慢性毒性"], a: 3 },
+            { q: "若施藥時突然感到頭暈、噁心、流口水，應立即？", o: ["喝水休息一下繼續噴", "趕快加快速度噴完", "吃止痛藥", "停止作業，離開現場並就醫"], a: 3 },
+            { q: "下列哪一種不屬於農作物病蟲害的防治方法？", o: ["物理防治", "生物防治", "化學防治", "玄學防治"], a: 3 },
+            { q: "蘇力菌對於下列哪一種昆蟲效果最好？", o: ["蚜蟲", "介殼蟲", "紅蜘蛛", "鱗翅目幼蟲(如菜蟲)"], a: 3 },
+            { q: "「性費洛蒙」誘蟲盒的主要用途是？", o: ["毒死所有昆蟲", "裝飾農田", "阻擋風雨", "監測害蟲密度或大量誘殺雄蟲"], a: 3 },
+            { q: "施用殺蟲劑時，為何常需在傍晚進行？", o: ["晚上蟲比較好抓", "晚上農藥毒性會增強", "怕農藥蒸發太慢", "多數害蟲於夜間活動且可減少紫外線破壞藥效"], a: 3 },
+            { q: "使用內吸性農藥時，藥劑傳導通常需要？", o: ["土讓乾燥", "狂風暴雨", "植物休眠", "植物有正常的蒸散及生理活動"], a: 3 },
+            { q: "為了保護鳥類，施用粒劑農藥應注意什麼？", o: ["跟飼料混在一起", "撒在葉片上", "灑在馬路上", "撒施後應覆土，避免鳥類誤食"], a: 3 },
+            { q: "作物對特定農藥產生不良反應(如燒焦)稱為？", o: ["抗藥性", "植物中毒", "代謝反應", "藥害"], a: 3 },
+            { q: "溫室內施用農藥需特別注意什麼？", o: ["不需戴口罩", "可以穿短袖", "風量很大所以很安全", "通風不良易導致施藥者吸入中毒，需加強防護"], a: 3 },
+            { q: "何謂「農藥代噴技術人員」？", o: ["農藥行老闆", "買農藥送的工人", "幫忙洗機器的人", "受過專業訓練並取得證照，受委託施藥者"], a: 3 },
+            { q: "農藥外包裝上的標籤如果不見了，應如何處理？", o: ["用奇異筆自己寫", "憑記憶使用", "送給別人用", "不可隨意使用，應向原購買處確認或銷毀"], a: 3 },
+            { q: "噴灑農藥後，機器內部殘留液體應如何處理？", o: ["倒進水溝", "留在裡面下次用", "洗一洗倒進馬桶", "加水稀釋後噴灑於非敏感之空曠地"], a: 3 },
+            { q: "長期單一使用同一種除草劑容易導致？", o: ["土壤變肥沃", "作物變強壯", "農藥降價", "產生抗藥性超級雜草"], a: 3 },
+            { q: "使用除草劑時加上防護罩(遮罩)，主要是為了？", o: ["怕草看不到", "防紫外線", "讓機器變重", "防止藥液飄散傷害到旁邊的農作物"], a: 3 },
+            { q: "對環境最友善的病蟲害管理策略稱為？", o: ["天天噴藥", "大量使用化肥", "放任不管", "有害生物綜合管理 (IPM)"], a: 3 },
+            { q: "購買農藥時，應確認產品具有何種字號？", o: ["食品字號", "化妝品字號", "專利字號", "農藥許可證字號(如農藥製字第xxx號)"], a: 3 },
+            { q: "何謂生物農藥？", o: ["化學合成的特強農藥", "便宜的農藥", "過期的農藥", "利用天然物質或微生物製成，對環境較友善之農藥"], a: 3 },
+            { q: "農田發生福壽螺危害，常使用何種藥劑防除？", o: ["殺草劑", "殺菌劑", "殺蟎劑", "殺軟體動物劑"], a: 3 },
+            { q: "施用化學殺菌劑時，如果遇到連續陰雨天，藥效通常會？", o: ["變強一倍", "毫無影響", "因為無陽光而變毒", "因雨水沖刷而大幅降低"], a: 3 },
+            { q: "農藥稀釋時，最佳的溶劑通常是？", o: ["熱水", "海水", "自來水加肥皂", "乾淨的清水"], a: 3 },
+            { q: "劇毒農藥的購買限制為？", o: ["任何人皆可買", "小學生可買", "只要有錢就能買", "須年滿18歲且登記身分並簽名"], a: 3 },
+            { q: "哪一種氣象條件下禁止使用無人機噴灑農藥？", o: ["晴天", "陰天", "無風狀態", "風速過大時"], a: 3 },
+            { q: "有機磷類殺蟲劑中毒時，瞳孔通常會有何種變化？", o: ["放大如牛眼", "不受影響", "變紅", "縮小如針孔"], a: 3 },
+            { q: "農產品農藥殘留檢驗不合格，農民將面臨？", o: ["政府發放獎金", "記功一次", "沒收農地", "產品被銷毀並面臨高額罰鍰"], a: 3 },
+            { q: "為維護國人健康及農業永續，我國推動的政策是？", o: ["農藥免費", "強迫使用劇毒", "農藥用越多越好", "農藥實名制及十年農藥化學農藥減半政策"], a: 3 }
+        ];
+
+        // 洗牌陣列 (Fisher-Yates Shuffle)
+        function shuffleArray(array) {
+            let curId = array.length;
+            while (0 !== curId) {
+                let randId = Math.floor(Math.random() * curId);
+                curId -= 1;
+                let tmp = array[curId];
+                array[curId] = array[randId];
+                array[randId] = tmp;
+            }
+            return array;
+        }
+
+        // 系統主控物件 (掛載於全域範圍，避免 onclick 抓不到)
+        const quizEngine = {
+            totalQuestions: 10,
+            currentIndex: 0,
+            activeQuestions: [], // 抽出的10題
+            userAnswers: [], // 記錄使用者的選擇
+            
+            // 啟動測驗
+            start() {
+                // 隨機抽取 10 題
+                let shuffledDb = shuffleArray([...database]);
+                let selectedDb = shuffledDb.slice(0, this.totalQuestions);
+
+                // 處理選項打亂邏輯 (確保正確答案跟著移動)
+                this.activeQuestions = selectedDb.map(q => {
+                    let originalOptions = [...q.o];
+                    let correctAnswerStr = originalOptions[q.a];
+                    
+                    // 打亂 A,B,C,D
+                    let mixedOptions = shuffleArray([...originalOptions]);
+                    let newCorrectIndex = mixedOptions.indexOf(correctAnswerStr);
+
+                    return {
+                        questionStr: q.q,
+                        options: mixedOptions,
+                        correctIndex: newCorrectIndex,
+                        correctAnswerText: correctAnswerStr
+                    };
+                });
+
+                this.currentIndex = 0;
+                this.userAnswers = new Array(this.totalQuestions).fill(null);
+
+                // UI 切換
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('result-screen').classList.add('hidden');
+                document.getElementById('quiz-screen').classList.remove('hidden');
+
+                this.render();
+            },
+
+            // 渲染當前題目
+            render() {
+                let qData = this.activeQuestions[this.currentIndex];
+                
+                // 更新進度與題目文字
+                document.getElementById('progress-text').innerText = `第 ${this.currentIndex + 1} / ${this.totalQuestions} 題`;
+                document.getElementById('progress-bar').style.width = `${((this.currentIndex + 1) / this.totalQuestions) * 100}%`;
+                document.getElementById('question-text').innerText = `${this.currentIndex + 1}. ${qData.questionStr}`;
+
+                // 更新選項按鈕
+                const optionsContainer = document.getElementById('options-container');
+                optionsContainer.innerHTML = '';
+                
+                const labels = ['A', 'B', 'C', 'D'];
+                qData.options.forEach((optText, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 option-btn flex items-center shadow-sm';
+                    
+                    // 標籤樣式
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-700 font-bold rounded-full mr-4 flex-shrink-0';
+                    labelSpan.innerText = labels[index];
+                    
+                    // 文字內容
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'text-gray-800 text-base md:text-lg';
+                    textSpan.innerText = optText;
+
+                    btn.appendChild(labelSpan);
+                    btn.appendChild(textSpan);
+
+                    // 若已經選擇過，反白顯示
+                    if (this.userAnswers[this.currentIndex] === index) {
+                        btn.classList.add('selected');
+                        labelSpan.classList.add('bg-green-600', 'text-white');
+                        labelSpan.classList.remove('bg-gray-100', 'text-gray-700');
+                    }
+
+                    btn.onclick = () => this.selectOption(index);
+                    optionsContainer.appendChild(btn);
+                });
+
+                // 按鈕狀態控制
+                document.getElementById('btn-prev').disabled = this.currentIndex === 0;
+                
+                const btnNext = document.getElementById('btn-next');
+                if (this.currentIndex === this.totalQuestions - 1) {
+                    btnNext.innerText = '交卷看成績';
+                    btnNext.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btnNext.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                } else {
+                    btnNext.innerText = '下一題';
+                    btnNext.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btnNext.classList.add('bg-green-600', 'hover:bg-green-700');
+                }
+            },
+
+            // 選擇答案
+            selectOption(index) {
+                this.userAnswers[this.currentIndex] = index;
+                this.render(); // 重新渲染以更新選取狀態
+            },
+
+            // 上一題
+            prev() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.render();
+                }
+            },
+
+            // 下一題或交卷
+            next() {
+                if (this.currentIndex < this.totalQuestions - 1) {
+                    this.currentIndex++;
+                    this.render();
+                } else {
+                    this.confirmFinish();
+                }
+            },
+
+            // 彈出交卷確認對話框
+            confirmFinish() {
+                let unanswered = this.userAnswers.filter(ans => ans === null).length;
+                let msg = unanswered > 0 
+                    ? `您還有 <span class="font-bold text-red-600">${unanswered}</span> 題尚未作答，確定要現在交卷嗎？`
+                    : `您已完成所有題目，準備好查看成績了嗎？`;
+                
+                const modal = document.getElementById('custom-modal');
+                modal.querySelector('p').innerHTML = msg;
+                modal.classList.remove('hidden');
+            },
+
+            // 關閉對話框
+            closeModal() {
+                document.getElementById('custom-modal').classList.add('hidden');
+            },
+
+            // 確定交卷與計分
+            finish() {
+                this.closeModal();
+                let score = 0;
+                let reviewHTML = '';
+
+                this.activeQuestions.forEach((q, idx) => {
+                    let userAnsIdx = this.userAnswers[idx];
+                    let isCorrect = userAnsIdx === q.correctIndex;
+                    
+                    if (isCorrect) {
+                        score += 10; // 每題 10 分
+                    } else {
+                        // 錯題收集
+                        let userText = userAnsIdx !== null ? q.options[userAnsIdx] : '<span class="text-gray-400 italic">未作答</span>';
+                        reviewHTML += `
+                            <div class="mb-4 pb-4 border-b border-gray-200 last:border-0 last:mb-0 last:pb-0 text-left">
+                                <p class="font-semibold text-gray-800 text-sm mb-1">Q${idx + 1}: ${q.questionStr}</p>
+                                <p class="text-sm text-red-500 mb-0.5">您的答案：${userText}</p>
+                                <p class="text-sm text-green-600 font-medium">正確答案：${q.correctAnswerText}</p>
+                            </div>
+                        `;
+                    }
+                });
+
+                // UI 切換
+                document.getElementById('quiz-screen').classList.add('hidden');
+                document.getElementById('result-screen').classList.remove('hidden');
+
+                // 繪製分數動畫與評價
+                document.getElementById('score-text').innerText = score;
+                const scoreRing = document.getElementById('score-ring');
+                scoreRing.style.strokeDasharray = `${score}, 100`;
+                
+                let feedback = document.getElementById('feedback-text');
+                if (score === 100) {
+                    feedback.innerText = "完美滿分！您是農藥知識大師！🏆";
+                    feedback.className = "text-lg font-bold text-green-600 mt-2";
+                    scoreRing.classList.replace('text-green-500', 'text-yellow-400');
+                } else if (score >= 60) {
+                    feedback.innerText = "表現不錯，順利及格！👍";
+                    feedback.className = "text-lg font-bold text-blue-600 mt-2";
+                    scoreRing.classList.replace('text-yellow-400', 'text-blue-500');
+                } else {
+                    feedback.innerText = "再接再厲！請多複習重點觀念喔！💪";
+                    feedback.className = "text-lg font-bold text-red-500 mt-2";
+                    scoreRing.classList.replace('text-blue-500', 'text-red-500');
+                }
+
+                // 顯示錯題
+                const reviewContainer = document.getElementById('review-container');
+                if (score === 100) {
+                    reviewContainer.innerHTML = '<div class="text-center text-gray-500 py-4">太棒了！沒有任何錯題！</div>';
+                } else {
+                    reviewContainer.innerHTML = `<h4 class="font-bold text-gray-700 mb-3 border-b pb-2">錯誤題目檢討</h4>${reviewHTML}`;
+                }
+            },
+
+            // 重新練習
+            restart() {
+                this.start();
+            }
+        };
+    </script>
+</body>
+</html>
